@@ -1,0 +1,91 @@
+\chapter{Personal Contribution}
+When starting development with Chewie, the project was in an early proof-of-concept state. EAP-MD5 was the only authentication method available and the code was written with all values publicly accessible. There was also no clear separation between logical components with RADIUS logic tightly coupled with EAP logic.
+
+This created issues when adding functionality as components were tightly coupled code-reuse was minimal. The EAP state machine contained most of the EAP and RADIUS logic but its internal state variables were changed throughout the rest of the project making it difficult to add MAB logic as the whole project was dependant upon the EAP pipeline. 
+
+Chewie did successfully block traffic on unauthenticated ports, notifying Faucet of changes in authentication state but did not provide any further restriction or VLAN information. It also provided a number of useful abstractions for producing RADIUS packets.
+
+\section{Code Refactor and Documentation}
+During the first section of development, I spent most of the time refactoring code, splitting object into maintainable segments and attempting to remove as much tight-coupling as possible. 
+There were a number of unit-tests already in place for Chewie, making this process easier, providing a quick way to ensure functionality was not lost during development.
+
+I also developed scripts for Sphinx\cite{sphinx_homepage}, a documentation building application, to build diagrams and provide documentation for the project. This made it easier to familiarise myself with the code-base and hopefully help with on-boarding future developers. 
+
+On successful completion of the TravisCI\cite{travis_ci_homepage} continuous integration testing suite the documentation is published to ReadTheDocs \cite{chewie_read_the_docs}, an online documentation hosting platform.
+
+To assist with development, I also developed a Docker-environment for integration testing. 
+As Chewie's functionality expects a multi-device environment for there developed a need for an easily created virtual testing environments that could be used for integration tests. 
+I developed this using Docker\cite{docker_homepage} and OpenVSwitch\cite{openvswitch}. 
+
+Along with the Docker environment I wrote a number of python-driven integration tests used for automatically testing the integration of Chewie with Faucet.
+
+The Docker environment built and setup a virtual switch, configuring ports for the Faucet, Chewie, a RADIUS server and a connecting Supplicant on a controlled port.
+\begin{enumerate}
+    \item FreeRADIUS\cite{freeradius_homepage}; as the RADIUS server; was configured according to credential-files provided in the Chewie repository and connected to the virtual switch. 
+    \item wpa\_supplicant\cite{wpa_supplicant_man_page}; as the supplicant; configured according to the supplicant folder in the Chewie repository and specific tests that were being attempted. On successful startup of the network the supplicant would automatically attempt to authenticate with the network using the EAP-method defined in the test.
+    \item Chewie; as the EAP Authenticator; configured by Faucet according to the Faucet configuration.
+    \item Faucet; as the SDN controller; The Faucet configuration was defined in a configuration file that was generated using a template by the specific tests being run. If no tests were being run, the developer is dropped into a bash environment after network set-up is complete.
+\end{enumerate}
+
+\section{Granular Traffic Filtering}
+Once the testing framework was in place, I developed a mechanism for Faucet to apply fine-grained filter policies after the start-up process. 
+As Faucet allocates the matching resources required to perform it's filtering based on the configuration file at startup, setting filter options was only available on start-up.
+
+By defining ACLs in the configuration file and adding a small amount of code to the ACL.py file, I was able to mark two ACLs for use with 802.1x. One was to be used for authenticated clients and the other to be used with unauthenticated ports. 
+Resources for these ACLs are allocated on start-up for all switches containing controlled ports and the unauthenticated ACL is applied to controlled ports on port-up.
+
+On successful authentication, flow-rules are built for the authenticated ACL and applied to the authenticated port matching on the MAC address of the successful client. 
+This was achieved through using Faucet's ACL Manager, converting the defined ACLs into OpenFlow\cite{onf_open_flow} flow-rules, applying the MAC as extra matching criteria.
+
+By setting the priority of the authenticated flow-rules at a higher level than the unauthenticated rules and including the MAC address as matching criteria, I was able to allow for multiple clients to attach to a single port. 
+
+The port remains closed for all unauthenticated users but is opened for individual users on authentication. This provides access control even if a non-SDN switch is attached to a controlled port, minimising the ability to piggyback on an authenticated session.
+
+\section{Mac Authentication Bypass}
+During the development process with Chewie, a number of feature requests for mac authentication bypass (MAB) were placed by Faucet-users. Without the ability to perform MAC address authentication Chewie was unable to be deployed in IoT environments hindering the adoption of Chewie by Faucet users.
+
+I built a new state machine for Chewie to process incoming DHCP requests and trigger a MAB authentication. Attempting to extract common functionality between MAB and EAPoL authentication, I build the abstract state machines from which both MAB SM and EAP SM inherit. 
+
+\subsection{Abstract State Machine}
+The goal of the Abstract State Machine (ASM) was to extract out the RADIUS communication process into a separate state machine and apply this to both child objects, but due to the high-coupling inside the EAP state machine, I was unable to extract all of RADIUS logic, instead using the A SM to extend the state machines, providing a template for state machine development.
+
+As the Chewie state machines were built using a state machine library; Transitions\cite{pytransitions_github} by PyTransitions; I was able to leverage the library to build state diagrams which were added to the documentation. The A SM was useful in enforcing the separation of core-pipeline state transition logic from transitions into failure states. This allowed for building cleaner diagrams, as all states return to disabled if a port-down event occurs, making the unfiltered diagrams difficult to read. Diagram generation has been added to documentation build process and diagrams are now included in the ReadTheDocs\cite{chewie_read_the_docs} documentation.
+
+\subsection{MAB State Machine}
+The MAB State Machine (MAB SM) receives all DHCP requests from the NFV port and performs authentication on behalf of the connecting client.
+
+A second socket has been created on the NFV port for consuming DHCP broadcast requests and forwarding these to the MAB SM, similar to the implementation of the EAPoL socket for the EAP State Machine.
+
+On receiving these packets, the MAB SM is required to complete an authentication process with the RADIUS server. I opted for using a non-challenged authentication process, proving all information in RADIUS attributes allowing for a 2-packet authentication process. This required the addition of the RADIUS User-Password attribute and encryption algorithm\cite{radius_password_attribute} as it was not currently supported by Chewie.
+
+By adding the User-Password attribute I was able to keep the MAB SM implementation simple with it only requiring 7 states.
+
+Along with the MAB SM, Faucet also required minor extensions; I added an addition configuration option for allowing MAB to be applied to controlled ports. This allowed me to add flow-rules to ports with MAB applied that forward DHCP requests along with EAPoL requests to the NFV port.
+
+I developed unit-tests and integration tests for MAB which were passing successfully, but while testing Faucet integration I noticed inconsistent behaviour. I was able to perform successful MAB authentication but an unintended side-effect occurred where all ports on the same VLAN as the NFV port triggered the MAB authentication process.
+
+For further information about this flooding issue refer to Section \ref{section:nfv_flooding}.
+
+% No Proofread
+\section{Downloadable ACL (dACL)}
+The primary focus of this thesis was the implementation of a NAC solution that can apply RBAC policies in an SDN environment. These policies were to be stored with the credentials in an authentication server, such as a RADIUS or LDAP server.
+
+My initial design of this aimed to provide individual ACL rules to the authenticator similar to Cisco's dACL functionality\cite{cisco_dacls}. Unlike Cisco's implementation, the individual filter rules would consist of a standard format, similar to the HPE implementation\cite{hpe_filter_rule}. These control rules would then deployed as flow-rules by Faucet on successful authentication.
+
+After familiarising myself with the Faucet code-base, I started investigating a way to pass filter rules between Chewie and the RADIUS server. The RADIUS attribute NAS-Filter-Rule \cite{radius_nas_filter_rule} is not a vendor-specific attribute and appears to be intended for transport of individual filter rules. I added the attribute to Chewie and passed the individual rules to Faucet on successful authentication.
+
+Attempting to have Faucet build flow-rules based on the provided filter rules was harder than expected. Discussing the problems with other Faucet developers, the errors being experienced were due to limitations with Faucets pre-allocation of switch matching resources. I was attempting to allocate new matching criteria on switches without them being allocated, which both deviated from the light-weight requirement of Faucets design principles and caused the switches to return OF Errors.
+
+A simple solution would be to pre-allocate a large number of matching resources on all switches containing controlled ports allowing for a large number of different types filter rules to be applied, but does not satisfy the light-weight requirements of Chewie and Faucet and is not a scalable solution.
+
+Instead this approach was abandoned and an alternative approach was investigated.
+
+\section{Credential-based ACLs}
+After failing to find a way to successfully build and apply individual flow-rules based on RADIUS information, I was forced to redesign the way RBAC policies will be applied to authenticated sessions. 
+I had developed ability to apply pre-defined ACLs on authentication status changes, which could be used for applying user-specific ACLs, provided the ACLs were defined in the Faucet configuration files. 
+
+I expanded upon the current approach and defined a way for Chewie to pass ACL identifiers to Faucet on authentication. Faucet could then use the provided ACL identifier to apply the appropriate flow-rules to the new session.
+
+This required the definition of another RADIUS attribute in Chewie, RADIUS Filter-ID. Using the Filter-ID attribute, I was able pass ACL identifiers to Chewie and have them applied on successful authentication.
+
+Also, as this was developed using RADIUS attributes, the provided filter identifiers were able to be provided with both MAB and EAPoL authentication. Allowing credential-based session restrictions for all supported authentication methods, provided the ACLs were defined in the Faucet configuration files.

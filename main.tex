@@ -1,0 +1,57 @@
+\documentclass[12pt]{latex_items/uwthesis17}
+\usepackage{enumitem}
+
+\usepackage{amsmath, amssymb, amsthm, amsxtra}
+\usepackage{ifpdf}
+\ifpdf % If using pdfLaTeX in PDF mode
+  \usepackage[pdftex]{graphicx}
+  \DeclareGraphicsRule{.ai}{pdf}{.ai}{} % Treat "ai" files as pdf files
+\else % If using LaTeX or pdfLaTeX in DVI mode
+  \usepackage[dvips]{graphicx}
+\fi
+\usepackage{acronym}
+\RequirePackage[numbers]{natbib}
+\bibliographystyle{IEEEtranN}
+\usepackage{hyperref}
+
+\def\code#1{\texttt{#1}}
+\title{Using OpenFlow for Fine-Grained Network Access Control}
+\author{Michael Washer}
+\date{June 2019}
+
+\begin{document}
+\pagenumbering{roman}
+\maketitle
+
+\setcounter{secnumdepth}{3}
+\begin{abstract}
+\input{text/abstract}
+\end{abstract}
+
+\begin{acknowledgements}
+\input{text/acknowledgements.tex}
+\end{acknowledgements}
+
+\tableofcontents
+\newpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\include{text/introduction}
+\include{text/background_nac}
+\include{text/background_sdn}
+\include{text/background_studies}
+\include{text/analysis}
+\include{text/implementation_details}
+\include{text/personal_contribution}
+\include{text/implementation_difficulties}
+\include{text/evaluation}
+\include{text/further_research}
+\include{text/conclusion}
+\include{text/resources}
+
+\nocite{*}
+
+\end{document}
+
+

@@ -1,0 +1,127 @@
+
+% Dealing with design decisions and implementation
+The implementation of the application is done through the use of the python programming lagnuage, owrking on a pluging known as Chewie, for the Faucet SDN controller.
+
+I have device to provide the a uthentication service trhogu the use of an NFV port, as doing this through the packet-in mechanisms present in OpenFlow suhc as in FlowIdentity. If not policed correctly this allows unauthenticated users to send packets to the controller adn potentially craft a malicious packet or attempt to DOS the controller with fake authentication requests. This could stop the controller form beign able to respond to authentic requests. 
+
+
+
+% Non proofread
+\section{Issues}
+The issues that hav created the need for the prohect are the 
+\begin{itemize}
+    \item Networks are scaling at a rate that can make them difficult to manage through traditional means.
+    \item Clients accessing network resources can be compromised and should be limited in their access.
+    \item Deployment of new access policies should be seamless and not dramatically increase management overhead.
+    \item The solution must be light-weight and easy to use.
+    \item The solution must not be vendor specific
+\end{itemize}
+% end non proofread
+
+
+\section{Reasoning for Design Decisions}
+\subsection{Use of VLANS}
+We will support dynamic allocation of VLAN for allowing access control at the group level and segregating groups of users from eachother.
+
+\subsection{Use of ACLs}
+acls are more powerful that just using VLANs. We can follow the introduction of VLANs from the previous research and extend upon it with the use of custom ACLs that can be set using the RADIUS attribute 65.
+
+\subsection{Support of MAB}
+There are large amounts of devices that are unable to connect to dot1x controlled networks that are required to be attached to networks. These include phones nad other networks. If we leave ports open without any security configuration this leaves them them vulnerable to having a wireless AP attached to them and a malicious attacker having easy wireless access to a secure network. At least with MAB there is a MAC address requirement when connecting to the network.
+
+
+% INFOMRATION ABOUT NFV AND EAPOL AND STATE MACHINES
+
+
+% Coffee Time %%
+
+Inside Faucet, an NFV port is assigned to a port on a switch that will be conntect to the Cheiwe interface and forwarding flows are established to forward EAPoL packets from all designated 802.1x-required ports.
+
+
+
+These ports are then blocked from sending traffic until Chewie approved their correct authentication, at which time Chewie can provide user-specific ACLs and VLANs for controlling access to the rest of the network.
+
+The NFV port and Chewie configuration is defined in the main Faucet configuration file, which is written in YAML. This configuration file is used by Faucet to define the current SDN topology and define any configuration requirements of the system, such as usage of Chewie or the RADIUS authentication credentials.
+
+These configuration preferences are read by Faucet on start-up and passed to Chewie through the API, defining the RADIUS credentials the Chewie will be using, interfaces to use and port numbers to attach to.
+
+Chewie will then start a socket for connecting with the RADIUS server and two sockets on the supplicant-facing interface that independently listen for EAPoL packets and Broadcast DHCP Request packets to arrive.
+% Coffee Time %%
+On arrival of a DHCP request a Access-Request packet is generated and sent to the RADIUS server with the MAC-address of the newly attached device for authentication in accordance with standard mac authentication bypass (MAB) practices. \cite{cisco_mab_setup_guide}
+
+On arrival of an EAPoL packet, the packet is inspected and the appropriate action is applied to the packet, such as starting the authentication process by forwarding EAP-requests to the RADIUS server embedded in the appropriate AAA-packet, or discarded for timing and checksum errors.
+
+The authentication itself is done on the RADIUS server, which allows Chewie to provide all 802.1x authentication mechanisms that are provided by the backend-server.
+
+
+
+
+
+Using state machines to ensure that the programs are always in an expected state. This creates a more secure understanding of the core-components of the project and allows easy debugging of state transitions.
+
+
+
+, such as Attribute 64 - Tunnel Type\cite{radius_attributes_iana}
+
+
+This will be supplied to the Authenticator and direct the Authenticator to apply a pre-defined filter on the session. 
+
+
+
+
+\textbf{I spent a little time adding a TTLS and TLS passthrough methods, by extending upon the currently available RADIUS message types.}
+
+
+
+Multiple clients are able to be connected on a single port.
+
+
+
+
+
+
+802.1x also defines communication between an EAP Authentication Server and EAP Authenticator be performed using an AAA protocol as the encapsulation layer. Extra attributes are attached to the AAA messages to provide the Authenticator with restrictions for sessions that are opened on the closed port.[Refer to Figure: \ref{fig:802_wired_protocol}]
+
+The AAA protocol used by 802.1x is Remote Dial In User Service (RADIUS), an open AAA protocol for providing centralised storage of authentication credentials, authorisation rules and accounting logs.\cite{rfc_2904}
+
+As 802.1x is used for IEEE 802 networks, it can be paired with WPA to provide an enterprise alternative to the PSK implementation. When clients connect, their authentication requests use individual credentials and all other traffic is blocked until successful authentication is achieved. This removes the overhead of WPA-PSK on the event of staff turnover and provides the ability for logging individual network access requests.
+
+
+% NEEDS TO BE ADDED under MAB
+, translating any EAP requests to AAA requests if required and generating authentication requests on behalf of devices  as seen in Mac Authentication Bypass (MAB). 
+
+
+% Added under 802.1x - Authenticator
+
+
+
+% Add under 802.1x Authentication Server
+The storage of credentials can be removed from the Authentication Server and placed in an LDAP server. This allows for easy management of data, grouping of identities and integration with services such as NFS. This is not in the authentication specification, however it is worth noting as it shows how extendable the 802.1x design is.
+
+
+% Define in the MAB section?
+, this can be seen through the MAB implementation in Chapter \ref{chap:implementation_details}.
+
+
+
+
+% Discussing opening ports with EAPoL
+If an AAA protocol is used to communicate between the Authenticator and the Authentication Server, in the case of Figure \ref{fig:802_packets} RADIUS is used, the AAA protocol will be used for encapsulating the EAP messages and the port will be opened in accordance with any restrictions provided as AAA attributes on the successful authentication of a Supplicant.
+
+
+
+\subsection{The Control Plane}
+The control plane is a logical component of a traditional router that performs all protocol logic, maintaining internal databases of the current network state and available routes provided. Operations are performed on the current state to decide a set of best routes and actions that need to be performed on traffic to reroute accordingly. These routes are then propagated down to the forwarding plane through the use of route tables. \cite{control_plane_tech_target}
+
+\subsection{The Forwarding Plane}
+
+Traditional networking devices consist of two core abstract logical concepts known as the control plane and data plane. The control plane is where network mapping and forwarding logic occurs to produce forwarding rules for use by the data plane. 
+
+The data plane, also known as the forwarding plane, performs lock-ups against the provided forwarding rules on ingress packet events and performing actions on packets as they are
+
+
+
+
+
+% Discussing Open Flow
+With OpenFlow, controlled devices can reside in both software and hardware, making it ideal for data-centers as switching within a shared compute-device can be controlled by the same controller that is orchestrating the physical fabric.\cite{cisco_open_flow}\cite{openvswitch}

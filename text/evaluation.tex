@@ -1,0 +1,35 @@
+\chapter{Evaluation}
+This chapter provides an evaluation of the achievements from this paper, reflecting on the goals presented in Chapter \ref{chapter:introduction} and discussing if they have been accomplished.
+
+\section{Goals Overview}
+The primary focus of this project was the development of a NAC solution for an SDN environment. The validation goals discussed in Chapter \ref{chapter:introduction} have been listed below.
+
+The goals of this project:
+\begin{itemize}
+    \item Use open and standard authentication protocols to allow interoperability between vendors whilst avoiding vendor lock-in. 
+    \item Apply role-based access control policies based on authentication details for allocating access to network resources. 
+    \item Light-weight and not overly hinder normal management of the network.
+\end{itemize}
+
+\section{Open and Standard Authentication Protocols}
+During development, all vendor-specific protocols and attributes were removed as options for use in the NAC system. By using RADIUS, EAP and MAB for authentication Chewie will have the widest support for clients, avoiding vendor lock-in. 
+
+The RBAC solution was also designed with open-standards as a primary focus. No vendor-specific RADIUS attributes, such as Cisco's AV-Pair attributes were used for sending information to Chewie. Instead open RADIUS attributes were used to provide session filter and VLAN information.
+
+This goal has been achieved as no proprietary protocols, attributes or close-source software is required by this project to provide NAC functionality.
+
+\section{Apply Role-Based Access Control Policies}
+Although Chewie is able to apply session filters based on a provided credentials, it is limited to predefined restrictions only. All ACLs used for session restrictions must be defined in the Faucet configuration file at startup. 
+For the purposes of this research project, restriction policies are able to be applied on a per-user basis and are dependent on supplied credentials however there extensions can be applied to the current implementation and are discussed further in Chapter \ref{chap:future_development}.
+
+% no proofread
+\section{Light-Weight Management}
+Chewie is managed and configured in same way as Faucet, using the Faucet.yaml configuration file. Chewie's logging is also achieved in a similar fashion to Faucet, using the same logging manager and activity monitor.
+
+Chewie provides thorough logs producing log entries for all state changes, allowing for quick debugging on errors.
+
+Chewie also provides per-user VLAN allocation, allowing network administrators to move freely around the network whilst providing access to any control VLANs without manual configuration.
+
+As Faucet is an SDN controller, switches do not require individual management and no additional setup is required for adding Chewie to the network. 
+
+As Chewie does not require the addition of any management tools and attaches to all management techniques provided by Faucet, Chewie does not hinder the light-weight management style of Faucet.

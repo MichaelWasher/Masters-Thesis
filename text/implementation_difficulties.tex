@@ -1,0 +1,33 @@
+\chapter{Implementation Difficulties}
+During my development towards Chewie there were a number of unexpected events that hindered my ability to accomplish my original design goals. In this chapter I have listed some of difficulties experienced throughout the development process in the hope that it may be beneficial for future developers.
+
+\section{NFV - VLAN Flooding issues}\label{section:nfv_flooding}
+Chewie receives DHCP requests from controlled ports for MAB functionality. These packets are sent over the existing data network. This network is controlled by Faucet and Faucet provisions a number of flow rules to redirect DHCP request to the NFV ports attached to Chewie.
+
+By default, Faucet places all ports in the same VLAN, placing all ports in the same flood table. When frames are sent to broadcast or multicast addresses they are forwarded to all listening devices on the same VLAN.
+
+As a DHCP request is a broadcast request, it is forwarded to all ports on the same VLAN including the NFV port. This side-effect was overlooked during the design process and created issues when more than one client is connected to a switch.
+
+As clients connect to non-802.1x controlled ports they send out DHCP requests. These requests were being received by Chewie and initiating the MAB authentication request process for all connecting devices. 
+
+This issue was resolved by moving the NFV port into a separate VLAN from the data network. As all inter-VLAN routing of the packets is done through Faucet's defined flows, we are able to forward packets inter-VLAN without a router. This removed the chance of broadcast packets being received by Chewie unintentionally.
+
+\section{Stated Radius Connections}
+The initial design for the EAP-RADIUS packet translation process was intended to be stateless. 
+
+On receiving an EAPoL frame, the Ethernet layer would be removed and the EAP message placed in a RADIUS packet. Likewise, on receiving a RADIUS packet, the EAP message would be extracted and forwarded to the Supplicant.
+
+A number of issues stopped this from being implementable, the main of which was as RADIUS packets are returned to the Authenticator there is no clear mechanism for resolving the intended client, without maintaining the state of communication between a the Supplicant and RADIUS Server. 
+
+Resolving the intended client has been achieved by storing RADIUS message id numbers and associating them with Supplicant origin information. This allows Chewie perform a lookup to find the required information to send EAPoL frames to the Supplicant.
+
+%No proofread
+\section{Faucet - Allocation of Resources} \label{section:faucet_resource_allocation}
+As part of Faucet's start-up process, switch matching resources are allocated according to the network configuration defined in the Faucet configuration file.
+
+All flows must not match on criteria that is not reserved during this period. If an attempt is made to match on extra criteria the action performed by the switch is ambiguous. Switches may respond with an OF Error or not respond and drop the new flow-rule. This limitation is a design feature of Faucet and is a crucial component to its lightweight design philosophy.
+
+The initial design for Chewie's fine-grained NAC was to accept individual filter rules using the NAS-Filter-Rule RADIUS attribute and deploy flow-rules accordingly. These filter rules could be grouped together to create ACLs and associated with groups and users through LDAP relationships.
+
+This approach was not feasible with the current Faucet implementation, and instead available ACLs must be defined in the Faucet configuration.
+The ACLs that will be used to limit the available network resources to a controlled port are defined in the RADIUS sever and shared to Chewie using the (IETF Filter ID ) attribute. This is forwarded to Faucet and the flow rules are built to apply the appropriate limitations.

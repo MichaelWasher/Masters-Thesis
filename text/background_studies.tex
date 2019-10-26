@@ -1,0 +1,65 @@
+\chapter{Background - Related Studies}
+A number of studies have influenced decisions made throughout this project. The most influential have been listed in this chapter, noting their relevance and the decisions they have impacted.
+Using these papers as reference, I was able to refine the scope of the project and define remaining gaps in the current literature that I attempt to fill with this thesis.
+
+\section{Vilnius University - Course-Grain SDN NAC}
+Two papers produced by the Vilnius University of Lithuania have been used as the foundation of my research. Involving the development and deployment of an SDN-based NAC solution using Floodlight, an open-source SDN controller, and open-standard RADIUS technology.
+
+The first paper investigates the difficulty of developing such a system and the latter discusses the deployment of the system at a university campus.
+
+\subsection{SDN-Driven Authentication and Access Control System}\label{chap:vilnius}
+'SDN-Driven Authentication and Access Control System'\cite{vainius_sdn_nac} investigates the feasibility of implementing an 802.1x network access control solution in an SDN environment. 
+
+This paper looks specifically at the limiting access to network resources through the use of segregated virtual networks using VLANs. As users connect to a controlled port, all non-essential traffic is blocked while redirecting the client to a web-based authentication interface hosted on at the Floodlight controller. From this interface users are able to provide authentication credentials which are challenged using a RADIUS server. 
+
+On successful completion of the authentication process, the RADIUS server provides the SDN controller with group-based access policies in the form of VLAN references to be applied to the Port. These policies are sent using the standard IETF RADIUS attributes set out in \ref{list:radius_attributes}.
+
+On receipt of the RADIUS attributes, flow rules are built and sent to the controlled switches, placing the authenticated port in the appropriate VLAN.
+
+This paper provides useful insight into passing RBAC policies from the RADIUS server to the controller, but is very limited in the policies able to be sent. As users are placed into groups and all access-control is achieved at the group level, this does not provide granular control over individual users. 
+
+Also once a user is placed on a VLAN, there are no mechanisms in place to restrict the type of traffic that a user can send, as would be when using ACLs.
+
+\subsubsection{RADIUS Attributes}
+\label{list:radius_attributes}
+\textbf{IETF 64 - Tunnel Type} \\
+Defining the tunnel type that will be used by the port. In this case it is value 13 - VLAN\\
+\textbf{IETF 65 - Tunnel Medium Type}\\
+Attribute is used to define the transport medium that should be used. As VLANs are provided at layer 2, the value used will be 6 - 802 frames.\\
+\textbf{IETF 81 - Tunnel Private Group ID}\\
+Attribute is used to indicate the group id for the tunnelled session. In this case the VLAN ID that will be applied to the session on successful authentication.\\
+
+\subsection{SDN Enhanced Campus Network Authentication and Access Control System}
+This paper extends the previous investigation\cite{vainius_sdn_nac} by deploying the developed SDN NAC solution over a university campus and discussing the network requirements and design parameters in detail.
+
+As with the previous paper, access control is provided through the use of VLANs exclusively, which limits the granularity of restrictions that can be put in place on the users session. However this solution experiences no issues with scaling during the deployment at the university and is proven to be a valid solution for medium to large group-based networks, such as universities. This solution provides a separation of staff and student traffic over the network.\cite{vinius_sdn_campus}
+
+The paper also discusses how authentication requests are received by system. Using the OpenFlow packet-in mechanism, all authentication requests are passed to the Controller before they are forwarded to the RADIUS server; This is a security vulnerability as all unauthenticated users on controlled ports are able to send authentication requests. This could result in congestion on the control network and stop FlowMod messages from arriving at their destination switches.
+
+\section{FlowIdentity: Software Defined Network Access Control}
+\cite{flow_identity}
+'FlowIdentity: Software Defined Network Access Control' provide a combination of a custom SDN controller and NAC solution built using the Trema OpenFlow framework. FlowIdentity uses the HostAPd daemon for 802.1x functionality. This solution does not provide a web-based interface, instead requiring a Supplicant application be present on the connecting clients machine. 
+
+On connection a client sends an EAPoL packet to the multicast address 01:80:c2:00:00:03 to initiate the authentication process. As with the solution in \ref{chap:vilnius} all authentication requests are sent to the Controller using the OpenFlow packet-in method.
+
+Access control is achieved through the use of a stateful role-based firewall (rbFW) with which administrators are able to define RBAC policy that can be dynamically enforced on successful user authentication. This role-information is sent from the RADIUS server to the Controller using the RADIUS IETF attribute 18 Reply-Message.\\
+\\
+\textbf{IETF 18 - Reply-Message}\\
+Attribute is used to indicate text that might be displayed to the user using the RADIUS server. In this case, it is used to define RBAC policy for placing restrictions on authenticated sessions.
+\\
+On receiving the role information, it is appended to a global identity table that is used by the rbFW for authorization and flow evaluation. This evaluation occurs as authenticated clients attempt to send traffic over the network. 
+
+The switch forwards all traffic without pre-defined flow rules to the Controller using the packet-in mechanism, provided to the controller with all unmatched packets. These packets can be evaluated against the rbFW rules for their associated client and a flow can be introduced to the relevant switches to allow the traffic.
+
+If the traffic is denied, a deny rule is pushed down to the switch to avoid overwhelming the controller with denied flow requests.
+
+This solution provides the ability for highly granular access control over the network but also requires a large amount of traffic to be sent to the controller. I believe that investigation needs to be performed assessing the risk of overwhelming the controller with flow requests as the network scales. Also mechanism used for passing information between the controller and the RADIUS server (IETF 18) is not compliant with intended purpose of the attribute.
+
+\section{Conclusion}
+Reviewing examples of NAC solutions has provided valuable insight to define sections in the current literature requiring further investigation. These have been listed below and will be analysed further in \ref{chapter:analysis}.
+\begin{itemize}
+    \item An SDN NAC solution that does not use the OpenFlow packet-in messages to perform authentication
+    \item Ability to filter traffic using fine-grained restriction methods, such as ACLs
+    \item Ability to provide different restriction requirements for each user on authentication
+    \item Support for multiple clients, both authenticated and unauthenticated, on a single managed port without creating security loopholes
+\end{itemize}

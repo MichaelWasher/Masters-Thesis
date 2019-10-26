@@ -1,0 +1,16 @@
+\chapter{Further Research}\label{chap:future_development}
+This chapter discusses possible extensions to the completed research in this project. I have listed a number of areas that future developers could expand upon to provide a more featured NAC solution.
+
+\section{Downloadable ACLs}\label{section:dacls}
+Further investigation can be done into Faucet's resource allocation system and implementing a mechanism for adding additional matching criteria to a switch flow-table after the initial setup. This would allow for dynamic allocation of filter-rules based on user credentials using the NAS-Filter-Rule RADIUS attribute.
+
+Another mechanism for adding additional matching criteria could be adding new ACL requirements to the Faucet configuration file and forcing a hard-restart, however this may create issues with the current implementation of Chewie.
+
+Further investigation is required to state that this is not possible.
+
+\section{Encrypted Channels}
+802.11i, a specification for wireless key exchange provides a key-sharing mechanism that can be used alongside 802.1x. This is used in wireless technologies such as WPA to provide an encrypted tunnel between the wireless AP and the client, limiting the ability of malicious users to piggy-back on authenticated sessions and removes the ability for traffic to be sniffed from the network.
+
+With Chewie, if a hub attached to a controlled port a malicious actor is able to sniff all traffic that is sent over the hub. By implementing a system similar to the 802.11i protocol, sessions could be encrypted removing the ability for the malicious user from understanding the traffic. This will also limit the ability for hubs to provide a mechanism to circumvent the NAC filtering, stopping the ability to piggy-back on authenticated sessions through MAC address spoofing.
+
+A proposed design for this could be through using Faucet's co-processor functionality, exposing an NFV port that receives encrypted traffic and outputs decrypted traffic to a separate switch for forwarding through the rest of the network, separating all decrypted traffic from the encrypted data network.

@@ -1,0 +1,100 @@
+\chapter{Background: Software Defined Networking}
+As networks grow in size, traditional network management techniques are becoming more time-consuming. Routine network maintenance and minor changes can require every affected network device be manually reconfigured to comply with the new configuration requirements.
+
+Software defined networks (SDN) attempt to resolve this problem by extracting the control mechanisms out of individual networking devices, placing them into centralised locations, called SDN controllers.\cite{computer_world_sdn} 
+
+These central SDN controllers produce a set of forwarding rules by performing decision logic about forwarding traditionally found in the networking devices. They perform protocols equivalent to traditional route-decision protocols, such as BGP and OSPF, and distribute the produced forwarding rules to controlled networking devices. These received forwarding rules are used by networking devices as references on ingress message events and are used orchestrate the flow of traffic over the controlled network.
+
+The produced forwarding rules are distributed to relevant subscribing networking devices, also known as forwarding devices, and are referenced on ingress message events for actions to be performed on the packet / frame.
+
+As the message traverses a forwarding device, a match is made according to the available forwarding rules and the associated actions with the matched rule are on the message. As the action-list is executed message values may be changed and the message is appropriately duplicated, discarded or forwarded according to the stored forwarding rule. 
+
+With the introduction of centralised controllers there is added latency when no matching rule is present on the forwarding device. As all networking mapping protocols are performed on the controller, the controller must be informed of the ingress message and a new forwarding rule produced for the forwarding device to process the unmatched message.
+
+Efficient controllers are configured to populate forwarding devices with common forwarding rules to avoid unnecessary overhead produced by contacting the controller. Performance of the data plane is not hindered if a matching forwarding rule is present on the forwarding device; no contact with the controller is required and the associated forwarding actions are performed locally. \cite{cisco_sdn_overview}
+
+SDN Controllers are generally run in software; This allows for rapid deployment of software patches and network configuration changes that are propagated through the network. These changes are only required to be performed on the central controllers and forwarding rules reflecting these changes will be distributed to all relevant controlled switches. This includes patches to network mapping protocols and traffic engineering logic.
+
+As network mapping logic is performed centrally, forwarding devices are limited in their knowledge of the OSI layer requirements and forwarding devices are able to perform operations of both a layer-2 and layer-3 networking device. If the SDN controller provides forwarding rules that include removing VLAN tags or replacing MAC address values for IP routing then these can be performed on forwarding switches.
+
+SDN Controllers also maintain the current state of network configuration, providing for a centralised store of configuration. This creates an easier mechanism for configuration back-up and roll-back.
+
+\section{Networking Devices}
+Network devices functionality can be segmented into two abstract logical components. 
+\begin{enumerate}
+    \item The control plane, which is responsible for performing decisions about traffic flow.
+    \item The data plane, which performs all operations on messages and is responsible for forwarding packets over the network.
+\end{enumerate}
+
+\subsection{The Control Plane}
+The control plane is responsible for maintaining a network map of the current network topology. This is traditionally achieved through the use of distributed networking protocols, such as OSPF and BGP. A map of currently available routes is built and simple forwarding rules are produced for consumption by the data plane.
+The control plane makes all decisions about traffic flow and is where traffic engineering occurs. Latency of operations is less importance in the control plane, with efficiency of forwarding rules and building shortest path routes taking precedent. \cite{control_plane_tech_target}
+
+\subsection{The Data Plane}
+The data plane, also known as the forwarding plane, is responsible for performing all packet manipulation and forwarding actions. As ingress messages arrive, actions are performed on these messages before they are forwarded or discarded in accordance with the matching forwarding rules. 
+The primary goal of the forwarding plane is to perform forwarding and manipulation actions as quickly as possible. Actions performed on messages include moving messages from an ingress port to an egress port, or discard.
+
+\section{Traditional Networking Devices}
+Traditional networking devices perform the actions of both the control plane and forwarding plane individually. 
+The control segments of each networking device must use standard networking protocols, such as OSPF, to build and maintain their own map of the current network. This requires constant communication between distributed networking devices and the use of special protocols to avoid developing loops in the network, such as RSTP.
+
+\section{SDN Networking Devices}
+SDN networking devices do not perform control plane operations. Centralised SDN Controllers build forwarding rules that are used by controlled networking devices to perform all operations of the data plane. These devices are also known as switching devices.
+As forwarding instructions can include operations at both OSI Layer 2 and Layer 3, switching devices are able to perform operations of traditional routers such as inter-VLAN routing.
+All mapping protocols are performed by the controller, simplifying the development and maintenance of the network map and providing a central place to perform traffic engineering.
+If an unknown packet arrives at a switching device, it consults the controller and a new forwarding rule is established on the switching device.
+
+\section{OpenFlow}
+OpenFlow (OF) is a standard that defines the communication between SDN controllers and SDN switching devices on a network. \cite{onf_open_flow} 
+OpenFlow controllers produce 'flows', which consist of matching criteria and associated actions, and distribute them to controlled devices using OpenFlow FlowMod messages.
+
+\begin{itemize}
+    \item Matching criteria is used to define which packets should be affected by a flow. Options for specifying matches on values such as destination address of packets and ether-type of frames.
+    \item Action fields are used to define operations that will be performed on a packet as it traverses a flow, such as appending a VLAN tag or outputting the packet out a port.
+\end{itemize}
+
+Received flows are organised on controlled devices through the use of flow-tables, which are chained together to provide a complex packet-processing pipeline allowing multi-step actions.
+
+When a controlled switch encounters a packet that does not match any flows in the first table, a packet-in message is generated and sent to the controller. The switch may send the ingress packet's metadata, or the whole packet back to the controller, based on configuration. 
+On receiving the packet-in message, the Controller will generate and respond with an appropriate flow rule that applies to the packet. This flow rule is added to the origin switch for use with future packets, slowly populating the flow-tables. 
+It is common for OpenFlow SDN Controllers\cite{faucet_read_the_docs} to pre-load flow rules into their forwarding devices to avoid control network congesting and improve latency. \cite{high_speed_open_flow}
+
+When a match is made on a packet, the actions associated with the flow are performed on the packet and it may be forwarded to another flow-table, to an outgoing port or discarded in accordance with the flow rule.
+
+\section{OpenFlow SDN Controllers}
+A number of open-source OF SDN controllers are freely available on the market. I will discuss 3 available controllers and contrast them against the requirements for this project.
+
+\subsection{Faucet}
+\begin{figure}\begin{center}
+    \includegraphics[height=7cm]{images/faucet_architecture.png}
+    \caption{Faucet Architecture Diagram (From the Official Faucet Documentation \cite{faucet_architecture_diagram})}
+    \label{fig:faucet_architecture}
+\end{center}\end{figure}
+Written in Python 3, Faucet is a simplest implementation of an OpenFlow SDN controller discussed. It is written using the Ryu SDN framework, following a light-weight design philosophy providing a minimalist approach to controller design.
+The upper-bridge of Faucet does not provide a general-purpose API but allows for extension through the development of custom APIs that are used to attach plugins.[Refer to Figure \ref{fig:faucet_architecture}]
+
+These plugins are able to hook into Faucet's internal events and interact with the flow-control engine. An example of a plugin is the BGP plugin, Beka\cite{beka_github}, which is used to provide BGP functionality to a Faucet-controlled network.
+
+Faucet only supports OpenFlow on the south-bridge, which dramatically simplifies the design but may be limiting as other SDN controllers support a number of other protocols.
+
+Currently there is no support for NAC functionality in a Faucet driven network.
+
+\subsection{Floodlight}
+Written in Java, Floodlight is another simple SDN controller providing the required functionality for managing an OpenFlow network. 
+Modules are available for adding stateful firewall functionality to the controller and a Web-UI for ease of management of the controller.
+Deploying Floodlight on a virtualised environment was achieved fairly easily and the controller is intuitive to use however a combination of the explicitness of Java and the customisability of modules makes the Floodlight code-base far larger than Faucet's and will require more initial overhead for development towards a proof-of-concept fine-grained NAC solution.
+There is an example of a course-grained NAC solution using Floodlight\cite{vainius_sdn_nac} discussed further in the next chapter.
+
+\subsection{OpenDaylight}
+OpenDaylight (ODL) is a complex SDN controller, supporting a number of south-bridge protocols including OpenFlow and NetConf. It is currently the industry standard for large-scale deployment of SDN and is heavily customisable. The design philosophy is an 'all-in-one' controller, making it difficult to work deploy but provides the most functionality of all three developers.
+
+ODL will not be investigated further due to the complexity of deployment and fragmented documentation due to the multiple available versions provided by different vendors.
+
+% no proofread
+\section{Conclusion}
+% Overview of SDN over Traditional Networking 
+SDN provides a solution to the maintainability issues experienced as networks grow in size. OpenFlow is the leading open standard for communication between SDN controllers and their controlled switching devices. 
+% Explain why Faucet is the best
+Comparing the controllers discussed in this chapter, both Floodlight and Faucet appear to be valid options for developing a proof-of-concept NAC solution providing fine-grained access control. ODL is too complex for the purposes of this project and would better suit a large-scale development project. It requires an unreasonable overhead for a smaller project like this one.
+Unlike Floodlight, there are no NAC examples available for Faucet. However, I have been unable to locate any code for the NAC solution referenced in the 'SDN-Driven Authentication and Access Control System'\cite{vainius_sdn_nac} paper and it is my opinion that Python 3 is a better programming language than Java for rapid development of smaller systems. Also, the plugin system provided by Faucet will provide adequate event-hooks for an 802.1x module to attach to to the flow-engine of Faucet, in a similar fashion to the Beka module. 
+For these reasons I have decided that the Faucet controller will be a better underlying system for prototyping the NAC solution required for this project and will be used throughout the project for development purposes.

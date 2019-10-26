@@ -1,0 +1,78 @@
+\chapter{Introduction}\label{chapter:introduction}
+\section{The Problem}
+Computer networks are used to facilitate the spread of malware, leading to wide-spread damage felt throughout the business world. \cite{heartbleed} 
+
+With advancements in exploitation techniques\cite{malware_detection} the traditional 'perimeter' approach to network security is obsolete. Due to the increase in B.Y.O.D schemes and the proliferation of wireless technologies, it is no longer feasible to control the devices that attach to our networks. Firewalls and de-militarized zones (DMZ) are not enough to maintain network safety when threats arise from within the network.
+
+Once a single device inside the perimeter is compromised, this device can both probe the local network, mapping and searching for vulnerable devices, and initiate reverse-shell communication bypassing most firewall systems.
+
+The scope of this threat is increased with the broad adoption of Internet of Things (IoT) devices. A growing number of security vulnerabilities are being discovered in IoT devices and there is growing concern that they are becoming a common attack vectors for malicious actors.\cite{iot_attack_vector}\cite{stuxnet_attack_vector}
+
+Studies have shown that many common IoT devices are being sold running out-of-date software with known vulnerabilities, many including remote code execution vulnerabilities.\cite{insecure_by_design} These devices are always-on, network enabled and if compromised can be used to monitor a network looking for vulnerabilities. A term has been coined for the development of IoT devices as insecure-by-design. \cite{vulnerable_iot_devices}\cite{ddos_iot_devices}
+
+When designing an enterprise network, complete client isolation is not feasible as this will effect the deployment of in-house services, such as NFS and Samba shares.
+
+There are traditional solutions that when deployed provide the ability for limiting clients access to network resources, such as providing multiple VLANs and designating ports that shall be on each VLAN. However this solution does not accommodate clients that move over the network, such as B.Y.O.D devices and can be resource intensive due to port-management overhead.
+
+Through the use of authentication we are able to block unauthorised access to a network, dropping traffic until a client verifies their identity. This is known as network access control (NAC).
+
+By providing individual clients with different credentials we are able to differentiate between clients as they connect and even provide personalised resource limits through the use of fine-grained packet filtering techniques.
+
+These fine-grained access rules can be defined as role-based access control (RBAC) policies and associated with users to provide fine-grained network access control.
+
+As clients move around the network they will be forced to authenticate to access resources, on successful authentication their appropriate RBAC polices can be deployed on their connecting port regulating their access to network resources. This is known as fine-grained port-base network access control.
+
+Port-based NAC is powerful, but switches and ports must be configured manually to support NAC which can lead to a large organisational overhead and increase the difficulty of making changes to the network.\cite{fortinet_nac}
+
+A way to mitigate the overhead of protocol-management on network devices is through the use of software defined networking (SDN). 
+
+SDN attempts to address the decentralised style of traditional network management by moving all network control to central points, called controllers. These controllers manage the flow of traffic over the network, providing forwarding devices under their control with actions to perform on incoming messages. This movies all of the protocol logic away from the network into centralised locations, removing a large amount of the overhead experienced when performing protocol configuration on a traditional network.
+
+I have separated the concerns above into a concise set of issues for reference:
+\begin{enumerate}
+\item Networks are scaling at a rate that is making them difficult to manage through traditional means.
+\item Clients should be limited in their access to network resources as they can become compromised.
+\item Deployment of network resource restrictions should be seamless and not unreasonably increase management overhead.
+\end{enumerate}
+
+In this masters project I propose a system that will combine the centralised model of SDN and the security of NAC systems, minimising the overhead of traditional NAC systems while providing a secure network. I also propose that any solution that combines these design principles must also be light-weight and not use any vendor specific technologies as inter-vendor compatibility is crucial for widespread adoption.
+
+This system must:
+\begin{itemize}
+    \item use open and standard authentication protocols to allow interoperability between vendors.
+    \item have the ability apply role-based access control policies based on authentication details.
+    \item be light-weight and not overly hinder normal management of the network.
+\end{itemize}
+
+\section{Contribution}
+Throughout this project, I work towards providing an NAC mechanism for the Faucet SDN controller.
+The NAC implementation provides an 802.1x implementation, providing EAP authentication for network access. EAP is an open-standard defining a network authentication mechanisms to provide credential-based authentication. The EAP-based protocol used throughout the project is EAPoL, providing EAP authentication over an 802.3 Ethernet networks. Mac authentication bypass (MAB) is also provided as an option for device that are unable to perform the EAP authentication.
+
+Chewie, the developed project, is provided to the network through the use of an NFV port. Using SDN control mechanisms all EAPoL (Ethertype: 0x888e\cite{iana_802_numbers}) traffic from controlled ports is routed to the NFV port for processing and all other traffic is denied.
+
+Once authentication is complete, credential-based session restrictions are put in place to manage a clients access to networked resources. This is achieved through the controller setting a combination of port-based ACLs and VLANs based on the provided RBAC information from Chewie.
+
+Chewie supports the use of both EAPoL and MAB for authentication and RBAC restrictions are applicable to both authentication mechanisms.
+
+\section{Overview}
+This chapter, Chapter 1 presents an overview of the problem, defining key terms used throughout the rest of the report and specifies an overview of personal contributions made to the field. 
+
+Chapter 2 continues by discussing further background into network access control, the related protocols and the industry expectations of a NAC system. 
+
+Chapter 3 discusses the current state of software defined networking, contrasting two common open-source controllers and discussing the benefits of SDN. 
+
+Chapter 4 discusses the current state of literature for NAC in an SDN environment, including a review of related studies and how they have affected the direction of this paper. 
+
+Chapter 5 focuses on scope definition, providing an in-depth problem analysis; listing project completion requirements for reflection at the completion of the project. 
+
+Chapter 6 discusses detailed implementation detail for the project. Discussing the overall architecture of the chosen solution and how that has been implemented into source-code. This chapter focuses heavily on the inner-workings and implementation aspect of the system.
+
+Chapter 7 defined personal contributions to the project. As the developed system was a join effort between multiple universities, this chapter defined my personal research process and developed features towards the end project.
+
+Chapter 8 reflects on the difficulties experienced during the development phase, discussing the design iterations and listing some pitfalls to help future developers.
+
+Chapter 9 is an evaluation of the project, assessing whether the defined completion requirements have been achieved and to what degree.
+
+Chapter 10 discusses potential areas for future research and extension to the current system.
+
+Chapter 11 is a conclusion chapter; summarising the findings and providing an overview of the research outcomes.
